@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tiny Engineer S3 — Instalador</title>
+  <script type="module"
+    src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module">
+  </script>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      background: #111318;
+      color: #f4f6f8;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+    }
+    .card {
+      width: min(760px, 100%);
+      background: #191c22;
+      border: 1px solid #2c313a;
+      border-radius: 20px;
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    }
+    h1 { margin: 0 0 8px; font-size: clamp(28px, 5vw, 46px); }
+    .sub { color: #abb2bf; margin-bottom: 28px; }
+    .spec {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(180px,1fr));
+      gap: 10px;
+      margin: 24px 0;
+    }
+    .spec div {
+      background: #12151a;
+      border: 1px solid #292e37;
+      border-radius: 12px;
+      padding: 13px;
+    }
+    .warn {
+      background: #2b2110;
+      border: 1px solid #705318;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 20px 0;
+      line-height: 1.45;
+    }
+    esp-web-install-button {
+      --esp-tools-button-color: #5b8cff;
+      --esp-tools-button-text-color: white;
+      --esp-tools-button-border-radius: 12px;
+      display: block;
+      margin: 26px 0;
+    }
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 15px 24px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #5b8cff;
+      color: white;
+    }
+    ol { color: #d6dae1; line-height: 1.7; padding-left: 22px; }
+    code { color: #a8c7ff; }
+    .small { color: #8e96a3; font-size: 14px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Tiny Engineer S3</h1>
+    <div class="sub">Instalador web para ESP32-S3-N16R8 + PCA9685 + MAX98357A</div>
+
+    <div class="spec">
+      <div><b>MCU</b><br>ESP32-S3</div>
+      <div><b>Flash</b><br>16 MB</div>
+      <div><b>PSRAM</b><br>8 MB OPI</div>
+      <div><b>USB</b><br>Nativo CDC</div>
+    </div>
+
+    <div class="warn">
+      <b>Antes de instalar:</b> desconecta mecánicamente los servos o asegúrate
+      de que pueden moverse con seguridad. El montaje usa PCA9685 en
+      <code>GPIO8/9</code>, OE en <code>GPIO16</code> y MAX98357A en
+      <code>GPIO17/18/21</code>.
+    </div>
+
+    <ol>
+      <li>Conecta el ESP32-S3 al ordenador mediante un cable USB de datos.</li>
+      <li>Usa Chrome o Microsoft Edge.</li>
+      <li>Pulsa <b>Instalar firmware</b> y selecciona el puerto del ESP32-S3.</li>
+      <li>Cuando termine, reinicia la placa.</li>
+      <li>Al reiniciar, únete a la Wi‑Fi <b>TinyEngineer-XXXX</b> y abre <code>http://192.168.4.1/config</code>.</li>
+    </ol>
+
+    <esp-web-install-button manifest="manifest.json">
+      <button slot="activate">Instalar firmware</button>
+      <span slot="unsupported">
+        Tu navegador no soporta Web Serial. Usa Chrome o Microsoft Edge en un ordenador.
+      </span>
+      <span slot="not-allowed">
+        El instalador necesita HTTPS (o localhost).
+      </span>
+    </esp-web-install-button>
+
+    <div class="small">
+      Este instalador borra/reemplaza el firmware del ESP32 conectado.
+      Está preparado exclusivamente para <b>ESP32-S3-N16R8</b>.
+    </div>
+  </main>
+</body>
+</html>
