@@ -45,6 +45,70 @@ jobs:
           cp overlay/include/pins.h upstream/include/pins.h
           cp overlay/partitions_s3.csv upstream/partitions_s3.csv
 
+      - name: Adapt Tiny Engineer for optional external hardware
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("upstream/src/hardware/pca9685_servos.cpp")
+          s = p.read_text(encoding="utf-8")
+
+          old = '''  if (!pca9685Connected()) {
+            serialLogPrintln("ERROR: PCA9685 not found");
+
+            showOledText(
+              "PCA9685 ERROR",
+              "Not found"
+            );
+
+            haltWithRgbCode(
+              RGB_CODE_PCA9685,
+              "PCA9685 not found on I2C 0x40 — main board required"
+            );
+          }
+
+          serialLogPrintln("PCA9685 found");
+
+          initServoPwmDriver();'''
+
+          new = '''  if (!pca9685Connected()) {
+            serialLogPrintln("WARNING: PCA9685 not found at 0x40");
+            serialLogPrintln("External S3 build: continuing without active servos");
+
+            // Initialise the Adafruit driver object so later servo API calls
+            // never touch an uninitialised I2C device. OE is forced HIGH
+            // immediately afterwards, keeping servo outputs disabled.
+            initServoPwmDriver();
+            disableServoOutputs();
+            return;
+          }
+
+          serialLogPrintln("PCA9685 found");
+
+          initServoPwmDriver();'''
+
+          if old not in s:
+              raise SystemExit(
+                  "Upstream PCA9685 code changed; refusing to build an unpatched firmware"
+              )
+
+          p.write_text(s.replace(old, new, 1), encoding="utf-8")
+
+          p = Path("upstream/src/main.cpp")
+          s = p.read_text(encoding="utf-8")
+          s = s.replace(
+              '  serialLogPrintln("SDA = GP0");',
+              '  serialLogPrint("SDA = GPIO");\n  serialLogPrintln(I2C_SDA);'
+          )
+          s = s.replace(
+              '  serialLogPrintln("SCL = GP1");',
+              '  serialLogPrint("SCL = GPIO");\n  serialLogPrintln(I2C_SCL);'
+          )
+          p.write_text(s, encoding="utf-8")
+
+          print("Optional hardware patch applied successfully")
+          PY
+
       - name: Build firmware
         working-directory: upstream
         run: |
@@ -68,15 +132,6 @@ jobs:
 
           mkdir -p site/firmware
 
-          # ESP32-S3 Arduino/PlatformIO layout:
-          #   bootloader  0x000000
-          #   partitions  0x008000
-          #   boot_app0   0x00E000
-          #   app         0x010000
-          #   LittleFS    0x410000
-          #
-          # ESP Web Tools recommends overriding a QIO/QOUT merged image
-          # header to DIO so the browser flasher does not need to patch it.
           python -m esptool --chip esp32s3 merge-bin \
             -o site/firmware/tiny-engineer-s3-n16r8.factory.bin \
             --flash-mode dio \
@@ -95,7 +150,7 @@ jobs:
           cat > site/manifest.json <<'EOF'
           {
             "name": "Tiny Engineer S3 External",
-            "version": "1.0-s3-n16r8",
+            "version": "1.1-s3-n16r8-optional-hardware",
             "new_install_prompt_erase": true,
             "builds": [
               {
