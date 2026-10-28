@@ -45,17 +45,12 @@ jobs:
           cp overlay/include/pins.h upstream/include/pins.h
           cp overlay/partitions_s3.csv upstream/partitions_s3.csv
 
-      - name: Adapt Tiny Engineer for optional external hardware
+      - name: Make PCA9685 optional
         run: |
           python - <<'PY'
           from pathlib import Path
           import re
 
-          # -------------------------------------------------------------
-          # Make PCA9685 optional for the external ESP32-S3 build.
-          # Replace the whole initPca9685() function instead of matching
-          # every whitespace/formatting character from upstream.
-          # -------------------------------------------------------------
           p = Path("upstream/src/hardware/pca9685_servos.cpp")
           s = p.read_text(encoding="utf-8")
 
@@ -66,10 +61,6 @@ jobs:
             if (!pca9685Connected()) {
               serialLogPrintln("WARNING: PCA9685 not found at 0x40");
               serialLogPrintln("External S3 build: continuing without active servos");
-
-              // Initialise the driver object so later servo API calls remain safe.
-              // With no PCA9685 attached, I2C writes simply get no ACK.
-              // Keep OE HIGH so physical servo outputs stay disabled.
               initServoPwmDriver();
               disableServoOutputs();
               return;
@@ -84,60 +75,18 @@ jobs:
               re.DOTALL
           )
 
-          m = pattern.search(s)
-          if not m:
-              raise SystemExit(
-                  "Could not locate initPca9685() in upstream source; build stopped safely"
-              )
+          if not pattern.search(s):
+              raise SystemExit("Could not locate initPca9685()")
 
-          patched = pattern.sub(
-              replacement + "\n\nbool moveServoSmooth",
-              s,
-              count=1
+          p.write_text(
+              pattern.sub(replacement + "\n\nbool moveServoSmooth", s, count=1),
+              encoding="utf-8"
           )
-
-          if patched == s:
-              raise SystemExit("PCA9685 patch made no changes; build stopped safely")
-
-          p.write_text(patched, encoding="utf-8")
-
-          # -------------------------------------------------------------
-          # Correct I2C pin labels in the upstream serial boot log.
-          # This part is optional: if upstream changes these strings, build
-          # still succeeds.
-          # -------------------------------------------------------------
-          p = Path("upstream/src/main.cpp")
-          s = p.read_text(encoding="utf-8")
-
-          s = s.replace(
-              'serialLogPrintln("SDA = GP0");',
-              'serialLogPrint("SDA = GPIO");\n  serialLogPrintln(I2C_SDA);'
-          )
-          s = s.replace(
-              'serialLogPrintln("SCL = GP1");',
-              'serialLogPrint("SCL = GPIO");\n  serialLogPrintln(I2C_SCL);'
-          )
-
-          p.write_text(s, encoding="utf-8")
-
-          # Verify the actual result, not the original formatting.
-          result = Path(
-              "upstream/src/hardware/pca9685_servos.cpp"
-          ).read_text(encoding="utf-8")
-
-          required = [
-              "WARNING: PCA9685 not found at 0x40",
-              "continuing without active servos",
-              "disableServoOutputs();",
-              "return;"
-          ]
-
-          for marker in required:
-              if marker not in result:
-                  raise SystemExit(f"Patch verification failed: {marker}")
-
-          print("ESP32-S3 optional-hardware patch applied and verified")
           PY
+
+      - name: Enable runtime servo limits and OLED rotation
+        run: |
+          python overlay/patch_runtime_settings.py upstream
 
       - name: Build firmware
         working-directory: upstream
@@ -173,14 +122,12 @@ jobs:
             0x010000 "$BUILD/firmware.bin" \
             0x410000 "$BUILD/littlefs.bin"
 
-          ls -lh site/firmware/tiny-engineer-s3-n16r8.factory.bin
-
       - name: Create release manifest
         run: |
           cat > site/manifest.json <<'EOF'
           {
             "name": "Tiny Engineer S3 External",
-            "version": "1.2-s3-n16r8-optional-hardware",
+            "version": "1.3-s3-n16r8-runtime-servo-limits",
             "new_install_prompt_erase": true,
             "builds": [
               {
